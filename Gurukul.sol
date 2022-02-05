@@ -124,5 +124,4 @@ contract Guru is ERC20 {
         uint256 totalSupply = 10000000 * 1 ether;
         _mint(msg.sender, totalSupply);
     }
-
 }
