@@ -24,10 +24,13 @@ contract Gurukul {
         string name;
     }
 
+    Course[] courses;
+
     mapping(address => uint256[]) creatorCourseMap;
     mapping(uint256 => Course) courseMap;
     mapping(address => uint256[]) studentCourseMap;
     mapping(address => mapping(uint256 => bool)) courseCompletion;
+    mapping(address => uint256[]) completedCoursesByStudent;
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Only owner can call this function");
@@ -39,6 +42,7 @@ contract Gurukul {
         owner = msg.sender;
     }
 
+    //Internal function to transfer the GURU tokens
     function depositToken(address tokenOwner, uint256 amount) internal {
             uint256 amountToDeposit = amount * (1 ether);
             uint256 balance = guruToken.balanceOf(tokenOwner);
@@ -46,9 +50,9 @@ contract Gurukul {
 
             guruToken.transferFrom(tokenOwner, address(this),amountToDeposit);
 
-
     } 
 
+    //Creator calls this function to create the course
     function createCourse(string memory name) public {
 
         courseIds.increment();
@@ -58,8 +62,11 @@ contract Gurukul {
         Course memory course = Course(msg.sender, courseId , name);
         creatorCourseMap[msg.sender].push(courseId);
         courseMap[courseId] = course;
+
+        courses.push(course);
     }
 
+    //Call this function when the student enrolls in a course - Called by student
     function joinCourse(uint256 courseId) public {
         //Step1: Deposit the student stake
         depositToken(msg.sender, STUDENT_STAKE);
@@ -68,6 +75,7 @@ contract Gurukul {
         courseCompletion[msg.sender][courseId] = false;
     }
 
+    //Call this function when the course is completed - Called by student
     function completeCourse(uint256 courseId) public {
         require(courseCompletion[msg.sender][courseId] == false, "Student has already completed this course");
         bool hasEnrolled = false;
@@ -85,9 +93,10 @@ contract Gurukul {
 
         //Distributing staked money - 80% to student, 10% to creator and 10% to platform
         //Platform amount remains in the contract
-        uint256 studentAmount = 30 * 1 ether;
-        uint256 creatorAmount = 10 * 1 ether;
-
+        uint256 studentAmount = 40 * 1 ether;
+        uint256 creatorAmount = 5 * 1 ether;
+        
+        completedCoursesByStudent[msg.sender].push(courseId);
 
         uint256 guruBalance = guruToken.balanceOf(owner);
         require(guruBalance > (STUDENT_STAKE * 1 ether), "Not enough balance in the pool");
@@ -97,6 +106,22 @@ contract Gurukul {
 
     }
 
+    //Get all the courses created on the platform
+    function getAllCourses() public view returns(Course[] memory) {
+        return courses;
+    }
+
+    //Get all the courses enrolled by a particular student
+    function getStudentCourse(address studentAddress) public view returns(uint256[] memory) {
+        return studentCourseMap[studentAddress];
+    } 
+
+    //Get all the courses completed by a particular student
+    function getStudentCompletedCourses(address studentAddress) public view returns(uint256[] memory) {
+        return completedCoursesByStudent[studentAddress];
+    }
+
+    //Withdraw the funds from the contract
     function withDrawFunds(uint256 amount) public onlyOwner {
         uint256 amountToDeposit = amount * (1 ether);
         uint256 balance = guruToken.balanceOf(address(this));
@@ -104,7 +129,6 @@ contract Gurukul {
 
         guruToken.transferFrom(address(this), msg.sender, amountToDeposit);
     }
-
 }
 
 /**
@@ -124,4 +148,5 @@ contract Guru is ERC20 {
         uint256 totalSupply = 10000000 * 1 ether;
         _mint(msg.sender, totalSupply);
     }
+
 }
